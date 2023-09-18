@@ -79,7 +79,8 @@ bool UDPSocket::initializeUDPSocket() {
     tv.tv_sec = UDP_REQ_TIMEOUT;
     tv.tv_usec = 0;
     #ifdef _WIN32
-    if (setsockopt(m_bCastSock, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof(tv)) < 0)
+    DWORD timeout = tv.tv_sec * 1000;
+    if (setsockopt(m_bCastSock, SOL_SOCKET, SO_RCVTIMEO, (char *) &timeout, sizeof(timeout)) < 0)
     #else
     if (setsockopt(m_bCastSock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
     #endif
@@ -115,7 +116,11 @@ std::string UDPSocket::sendUDPCommand(const std::string& msg, const std::string&
 
     socklen_t len = sizeof(ipAddr);
     char resp[MAXLINE] = {};
-    int n = recvfrom(m_bCastSock, (char *)resp, MAXLINE, MSG_WAITALL, (struct sockaddr *) &ipAddr, &len);
+    int flags = 0;
+    #ifndef _WIN32
+    flags = MSG_WAITALL;
+    #endif
+    int n = recvfrom(m_bCastSock, (char *)resp, MAXLINE, flags, (struct sockaddr *) &ipAddr, &len);
 
     if (n < 0) {
         LOG_E("device response timedout error %s", strerror(errno));
