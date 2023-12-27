@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.0.0)
+cmake_minimum_required(VERSION 3.15.0)
 project(wizlightcpp VERSION 1.0.0)
 
 SET(GCC_COVERAGE_COMPILE_FLAGS "-Werror -Wall -std=c++17")
@@ -18,8 +18,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 # Jansson JSON library
-find_package(Jansson REQUIRED) 
-target_link_libraries(${PROJECT_NAME} ${Jansson_LIBRARIES})
+find_package(Jansson REQUIRED)
+find_package(nlohmann_json REQUIRED)
+target_link_libraries(${PROJECT_NAME} ${Jansson_LIBRARIES} nlohmann_json::nlohmann_json)
 target_include_directories(${PROJECT_NAME} PUBLIC ${Jansson_INCLUDE_DIRS})
 
 

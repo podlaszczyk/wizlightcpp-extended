@@ -30,7 +30,22 @@
 #include <vector>
 #include "wizcontrol.h"
 #include "log.h"
+#include "TemperateTimeSchedule.h"
+
+#include <cstdlib>
+#include <regex>
+#include <fstream>
+#include <nlohmann/json.hpp>
+#include <optional>
+#include <atomic>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+
+bool isInTimeFrame(int currentHour, int currentMinute, int startHour, int startMinute, int endHour, int endMinute);
+
 using namespace std;
+
 
 
 void printUsage()
@@ -278,8 +293,12 @@ WizControl::WizControl()
         {"setrgbcolor", setrgbcolor},
         {"setspeed", setspeed},
         {"setcolortemp", setcolortemp},
-        {"setscene", setscene}
+        {"setscene", setscene},
+        {"allbulbs", allbulbs},
+        {"offall", offall},
+        {"onall", onall}
     };
+    findAllBulbs();
 }
 
 WizControl::~WizControl() {
@@ -303,7 +322,20 @@ std::string WizControl::performWizRequest(const std::string& cmd)
     }
     auto eCmd = g_cmdMap.at(cmd);
 
-    if (eCmd != discover && m_bulb.getDeviceIp().empty()) {
+    if(eCmd == allbulbs)
+    {
+        findAllBulbs();
+    }
+    if(eCmd == offall)
+    {
+        turnOffAll();
+    }
+    if(eCmd == onall)
+    {
+        turnOnAll();
+    }
+
+    else if (eCmd != discover && m_bulb.getDeviceIp().empty()) {
         std::string ip;
         while (1) {
             cout << "Enter the bulb IP address: ";
@@ -410,9 +442,236 @@ std::string WizControl::performWizRequest(const std::string& cmd)
     return ret;
 }
 
+void WizControl::changeTempInTime(int startTemp, int endTemp, std::chrono::system_clock::time_point startTime, std::chrono::system_clock::time_point endTime) {
+
+    auto currentTemerature = startTemp;
+    auto duration = std::chrono::duration_cast<std::chrono::minutes>(endTime-startTime);
+    auto minutes = static_cast<int>(duration.count());
+    auto delta = (endTemp - startTemp) * 1.0 / minutes;
+    for(auto time = 0; time < minutes; )
+    {
+        m_bulb.setColorTemp(currentTemerature);
+        std::cout << "Current temperature: " << currentTemerature << " " << "time: " << time <<  " delta: " << delta << endl;
+        time += 1;
+        currentTemerature = startTemp + delta * time;
+        sleep(2);
+    }
+
+}
+
+bool WizControl::findBulb(const std::string ipAdress) {
+    auto ret = m_bulb.discover(ipAdress);
+    if (!ret.empty())
+    {
+        if(ret.find("bulb_response") != std::string::npos)
+        {
+//            cout << ret << endl;
+            return true;
+        }
+        return false;
+    }
+    return false;
+}
+
+std::vector<std::string> WizControl::extractIPAddresses(const std::string& input) {
+    std::vector<std::string> addresses;
+    std::regex regex("\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b");
+
+    auto words_begin = std::sregex_iterator(input.begin(), input.end(), regex);
+    auto words_end = std::sregex_iterator();
+
+    for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
+        addresses.push_back(i->str());
+    }
+
+    return addresses;
+}
+
+void WizControl::findAllBulbs()
+{
+    const char* command = "arp -a > devicesInNetwork.txt";
+
+    // Execute the command
+    int result = system(command);
+    if (result == 0) {
+        std::stringstream buffer;
+        buffer << std::ifstream("devicesInNetwork.txt").rdbuf();
+        std::vector<std::string> ipAddresses = extractIPAddresses(buffer.str());
+
+
+//        std::cout << "Extracted IP addresses:" << std::endl;
+        for (const auto& ipAddress : ipAddresses) {
+//            std::cout << ipAddress << std::endl;
+            if(findBulb(ipAddress))
+            {
+                allIPs.push_back(ipAddress);
+            }
+        }
+    }
+}
+
+void WizControl::setActiveBulb(std::string ip) {
+
+    m_bulb.setDeviceIP(ip);
+}
+
+void WizControl::turnOffAll()
+{
+    for(const auto& ip : allIPs)
+    {
+        m_bulb.setDeviceIP(ip);
+        m_bulb.toggleLight(false);
+    }
+}
+
+void WizControl::turnOnAll()
+{
+    for(const auto& ip : allIPs)
+    {
+        m_bulb.setDeviceIP(ip);
+        m_bulb.toggleLight(true);
+    }
+}
+
+std::vector<TemperatureTimeSchedule> loadTemperatureSchedule() {
+    ifstream file("temperatureSchedule.json");
+    nlohmann::json jsonData;
+    file >> jsonData;
+
+    // Accessing values from the JSON object
+
+    std::vector<TemperatureTimeSchedule> schedules;
+    for(const auto& bulb : jsonData["bulbes"]) {
+
+        TemperatureTimeSchedule temperatureTimeSchedule;
+        temperatureTimeSchedule.m_devIP = bulb["m_devIP"];
+        temperatureTimeSchedule.name = bulb["name"];
+
+        for (const auto &timeFrame: bulb["temperatureTimeFrames"]) {
+            TemperatureTimeFrame temperatureTimeFrame;
+            temperatureTimeFrame.startTemperature = timeFrame["Temperature"]["start"];
+            temperatureTimeFrame.endTemperature = timeFrame["Temperature"]["end"];
+            temperatureTimeFrame.startTime.tm_hour = timeFrame["startTime"]["hour"];
+            temperatureTimeFrame.startTime.tm_min = timeFrame["startTime"]["min"];
+            temperatureTimeFrame.endTime.tm_hour = timeFrame["endTime"]["hour"];
+            temperatureTimeFrame.endTime.tm_min = timeFrame["endTime"]["min"];
+
+            temperatureTimeSchedule.temperatureTimeFrames.push_back(temperatureTimeFrame);
+        }
+        schedules.push_back(temperatureTimeSchedule);
+    }
+
+    // Print the values
+    for(const auto& temperatureTimeSchedule : schedules)
+    {
+        cout << "m_devIP: " << temperatureTimeSchedule.m_devIP << endl;
+        cout << "name: " << temperatureTimeSchedule.name << endl;
+        for (const auto& timeFrame : temperatureTimeSchedule.temperatureTimeFrames)
+        {
+            cout << "Temperature start: " << timeFrame.startTemperature << endl;
+            cout << "Temperature end: " << timeFrame.endTemperature << endl;
+            cout << "Start time: " << timeFrame.startTime.tm_hour << ":" << timeFrame.startTime.tm_min << endl;
+            cout << "End time: " << timeFrame.endTime.tm_hour << ":" << timeFrame.endTime.tm_min << endl;
+        }
+    }
+
+
+    return schedules;
+}
+
+std::optional<TemperatureTimeFrame> isInAnyTimeFrame(const std::tm* localTime, const TemperatureTimeSchedule &temperatureTimeSchedule)
+{
+
+    int currentHour = localTime->tm_hour;
+    int currentMinute = localTime->tm_min;
+    for(const auto& frame : temperatureTimeSchedule.temperatureTimeFrames)
+    {
+        if(isInTimeFrame(currentHour, currentMinute, frame.startTime.tm_hour, frame.startTime.tm_min, frame.endTime.tm_hour, frame.endTime.tm_min))
+        {
+            return frame;
+        }
+    }
+    return {};
+}
+
+std::mutex mtx;
+std::condition_variable cv;
+bool keyPressed = false;
+
+std::atomic<bool> keepRunning(true);
+
+void keyboardInputThread() {
+    while (keepRunning) {
+        if (std::cin.peek() != EOF) {
+            char pressedKey = std::cin.get();
+            std::cout << "Key pressed: " << pressedKey << std::endl;
+
+            std::unique_lock<std::mutex> lock(mtx);
+            keyPressed = true;
+            lock.unlock();
+            cv.notify_one();
+
+
+            // Exit on 'q' key press
+            if (pressedKey == 'q') {
+                keepRunning = false;
+            }
+//            if (pressedKey == 'a')
+//            {
+//                wiz.performWizRequest("allbulbs");
+//            }
+//            if (pressedKey == 'o')
+//            {
+//                wiz.performWizRequest("on --ip 192.168.1.38");
+//            }
+//            if (pressedKey == 'f')
+//            {
+//                wiz.performWizRequest("off --ip 192.168.1.38");
+//            }
+        }
+
+        // Add a delay to avoid high CPU usage
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+}
+
 int main(int argc, char *argv[])
 {
     WizControl& wiz = WizControl::getInstance();
+//    std::thread inputThread(keyboardInputThread );
+
+
+
+//    auto temperatureTimeSchedules = loadTemperatureSchedule();
+//
+//    while (true)
+//    {
+//        auto currentTime = std::chrono::system_clock::now();
+//        std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
+//        std::tm* localTime = std::localtime(&currentTime_t);
+//
+//        for(const auto& schedule : temperatureTimeSchedules)
+//        {
+//            if( auto frame = isInAnyTimeFrame(localTime, schedule))
+//            {
+//                TemperatureTimeFrame timeFrame = frame.value();
+//
+//                auto startTime = currentTime + std::chrono::hours(timeFrame.startTime.tm_hour) + std::chrono::minutes(timeFrame.startTime.tm_min);
+//                auto endTime = currentTime + std::chrono::hours(timeFrame.endTime.tm_hour) + std::chrono::minutes(timeFrame.endTime.tm_min);
+//
+//                std::cout << "current IP: "<< schedule.m_devIP << std::endl;
+//                wiz.setActiveBulb(schedule.m_devIP);
+//                wiz.changeTempInTime(timeFrame.startTemperature, timeFrame.endTemperature, startTime, endTime);
+//            }
+//
+//            else{
+//                std::cout << "Bad time, no action" << endl;
+//            }
+//        }
+//        sleep(10);
+//    }
+
+
     if (argc == 1) {
         printUsage();
         return 0;
@@ -445,4 +704,13 @@ int main(int argc, char *argv[])
         wiz.performWizRequest(args.at(0));
     else
         wiz.validateArgsUsage(args);
+
+
+}
+
+
+
+bool isInTimeFrame(int currentHour, int currentMinute, int startHour, int startMinute, int endHour, int endMinute) {
+    return (currentHour > startHour || (currentHour == startHour && currentMinute >= startMinute)) &&
+               (currentHour < endHour || (currentHour == endHour && currentMinute <= endMinute));
 }

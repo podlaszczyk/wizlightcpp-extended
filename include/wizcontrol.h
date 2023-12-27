@@ -4,6 +4,7 @@
 
 #include "bulb.h"
 
+#include <chrono>
 
 class WizControl
 {
@@ -13,6 +14,12 @@ public:
     bool validateArgsUsage(const std::vector<std::string>& args);
     std::string performWizRequest(const std::string& cmd);
 
+    void changeTempInTime(int startTemp, int endTemp, std::chrono::system_clock::time_point startTime, std::chrono::system_clock::time_point endTime);
+    bool findBulb(const std::string ipAdress);
+    void findAllBulbs();
+    void setActiveBulb(std::string ip);
+    void turnOffAll();
+    void turnOnAll();
 
 private:
     std::string getSceneList();
@@ -21,14 +28,17 @@ private:
     bool checkArgOptions(const std::vector<std::string>& args, const std::string& cmd,
         const std::string& option, int& param);
 
-    WizControl();
+    std::vector<std::string> extractIPAddresses(const std::string& input);
+
+        WizControl();
     ~WizControl();
 
     enum WIZCMD {
         discover, on, off, status, reboot,
         getdeviceinfo, getwificonfig, getuserconfig, getmodelconfig, getsystemconfig,
-      	setbrightness, setrgbcolor, setspeed, setcolortemp, setscene
+      	setbrightness, setrgbcolor, setspeed, setcolortemp, setscene, allbulbs, offall, onall,
     };
     Bulb m_bulb;
     std::map<std::string, WIZCMD> g_cmdMap;
+    std::vector<std::string> allIPs;
 };

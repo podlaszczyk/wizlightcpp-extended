@@ -15,7 +15,7 @@ public:
     Bulb();
     ~Bulb();
 
-    void setDeviceIP(const std::string& ip);
+    void setDeviceIP(const std::string ip);
     std::string getDeviceIp();
 
     /*Get APIs*/

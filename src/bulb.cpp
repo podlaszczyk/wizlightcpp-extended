@@ -36,7 +36,7 @@ Bulb::~Bulb()
 {
 }
 
-void Bulb::setDeviceIP(const std::string& ip)
+void Bulb::setDeviceIP(const std::string ip)
 {
     m_devIP = ip;
 }
