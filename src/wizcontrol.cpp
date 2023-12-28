@@ -684,78 +684,78 @@ void schedulingThread(WizControl& wiz, const vector<TemperatureTimeSchedule> &te
 }
 
 
-int main(int argc, char *argv[])
-{
-//    WizControl& wiz = WizControl::getInstance();
-
-    WizControl wiz;
-    auto temperatureTimeSchedules = loadTemperatureSchedule();
-
-    std::jthread inputThread(keyboardInputThread);
-    std::jthread processThread(processingThread, std::ref(wiz));
-    std::jthread scheduleThread(schedulingThread, std::ref(wiz), std::ref(temperatureTimeSchedules));
-
-
-//    while (true)
-//    {
-//        auto currentTime = std::chrono::system_clock::now();
-//        std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
-//        std::tm* localTime = std::localtime(&currentTime_t);
+//int main(int argc, char *argv[])
+//{
+////    WizControl& wiz = WizControl::getInstance();
 //
-//        for(const auto& schedule : temperatureTimeSchedules)
-//        {
-//            if( auto frame = isInAnyTimeFrame(localTime, schedule))
-//            {
-//                TemperatureTimeFrame timeFrame = frame.value();
+//    WizControl wiz;
+//    auto temperatureTimeSchedules = loadTemperatureSchedule();
 //
-//                std::cout << "current IP: "<< schedule.m_devIP << std::endl;
-//                wiz.setActiveBulb(schedule.m_devIP);
-//                wiz.changeTempInTime(timeFrame.startTemperature, timeFrame.endTemperature, timeFrame, localTime);
-//            }
+//    std::jthread inputThread(keyboardInputThread);
+//    std::jthread processThread(processingThread, std::ref(wiz));
+//    std::jthread scheduleThread(schedulingThread, std::ref(wiz), std::ref(temperatureTimeSchedules));
 //
-//            else{
-//                std::cout << "Bad time, no action" << endl;
-//            }
-//        }
-//        sleep(1);
-//    }
-
-
-//    if (argc == 1) {
-//        printUsage();
-//        return 0;
-//    }
 //
-//    std::vector<std::string> args;
-//    for (int i = 1; i < argc; i++) {
-//        args.emplace_back(argv[i]);
-//    }
+////    while (true)
+////    {
+////        auto currentTime = std::chrono::system_clock::now();
+////        std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
+////        std::tm* localTime = std::localtime(&currentTime_t);
+////
+////        for(const auto& schedule : temperatureTimeSchedules)
+////        {
+////            if( auto frame = isInAnyTimeFrame(localTime, schedule))
+////            {
+////                TemperatureTimeFrame timeFrame = frame.value();
+////
+////                std::cout << "current IP: "<< schedule.m_devIP << std::endl;
+////                wiz.setActiveBulb(schedule.m_devIP);
+////                wiz.changeTempInTime(timeFrame.startTemperature, timeFrame.endTemperature, timeFrame, localTime);
+////            }
+////
+////            else{
+////                std::cout << "Bad time, no action" << endl;
+////            }
+////        }
+////        sleep(1);
+////    }
 //
-//    auto hIt = std::find(args.begin(), args.end(), "--help");
-//    if ((hIt != args.end()) && (hIt == args.begin())) {
-//        printUsage();
-//        return 0;
-//    }
 //
-//    auto vIt = std::find(args.begin(), args.end(), "--verbose");
-//    if (vIt != args.end()) {
-//        L::setLogLevel(L::d);
-//        LOG_D("Verbose log enabled");
-//        args.erase(vIt);
-//    }
+////    if (argc == 1) {
+////        printUsage();
+////        return 0;
+////    }
+////
+////    std::vector<std::string> args;
+////    for (int i = 1; i < argc; i++) {
+////        args.emplace_back(argv[i]);
+////    }
+////
+////    auto hIt = std::find(args.begin(), args.end(), "--help");
+////    if ((hIt != args.end()) && (hIt == args.begin())) {
+////        printUsage();
+////        return 0;
+////    }
+////
+////    auto vIt = std::find(args.begin(), args.end(), "--verbose");
+////    if (vIt != args.end()) {
+////        L::setLogLevel(L::d);
+////        LOG_D("Verbose log enabled");
+////        args.erase(vIt);
+////    }
+////
+////    if (!wiz.isCmdSupported(args.at(0))) {
+////        printUsage();
+////        return 0;
+////    }
+////
+////    if (args.size() == 1)
+////        wiz.performWizRequest(args.at(0));
+////    else
+////        wiz.validateArgsUsage(args);
 //
-//    if (!wiz.isCmdSupported(args.at(0))) {
-//        printUsage();
-//        return 0;
-//    }
 //
-//    if (args.size() == 1)
-//        wiz.performWizRequest(args.at(0));
-//    else
-//        wiz.validateArgsUsage(args);
-
-
-}
+//}
 
 
 
