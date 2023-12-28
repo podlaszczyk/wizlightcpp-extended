@@ -442,20 +442,18 @@ std::string WizControl::performWizRequest(const std::string& cmd)
     return ret;
 }
 
-void WizControl::changeTempInTime(int startTemp, int endTemp, std::chrono::system_clock::time_point startTime, std::chrono::system_clock::time_point endTime) {
+void WizControl::changeTempInTime(int startTemp, int endTemp, TemperatureTimeFrame timeFrame, std::tm* localTime) {
 
-    auto currentTemerature = startTemp;
-    auto duration = std::chrono::duration_cast<std::chrono::minutes>(endTime-startTime);
-    auto minutes = static_cast<int>(duration.count());
+    auto localHour = localTime->tm_hour;
+    auto localMin = localTime->tm_min;
+
+    auto minutes = (timeFrame.endTime.tm_hour-timeFrame.startTime.tm_hour) * 60 + (timeFrame.endTime.tm_min-timeFrame.startTime.tm_min);
     auto delta = (endTemp - startTemp) * 1.0 / minutes;
-    for(auto time = 0; time < minutes; )
-    {
-        m_bulb.setColorTemp(currentTemerature);
-        std::cout << "Current temperature: " << currentTemerature << " " << "time: " << time <<  " delta: " << delta << endl;
-        time += 1;
-        currentTemerature = startTemp + delta * time;
-        sleep(2);
-    }
+    auto deltaT = (localHour-timeFrame.startTime.tm_hour) * 60 + (localMin - timeFrame.startTime.tm_min);
+
+    auto currentTemerature = startTemp + delta * deltaT;
+    std::cout << "Current temperature: " << currentTemerature << " deltaT: " << deltaT <<  " delta: " << delta << endl;
+    m_bulb.setColorTemp(currentTemerature);
 
 }
 
@@ -642,34 +640,31 @@ int main(int argc, char *argv[])
 
 
 
-//    auto temperatureTimeSchedules = loadTemperatureSchedule();
-//
-//    while (true)
-//    {
-//        auto currentTime = std::chrono::system_clock::now();
-//        std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
-//        std::tm* localTime = std::localtime(&currentTime_t);
-//
-//        for(const auto& schedule : temperatureTimeSchedules)
-//        {
-//            if( auto frame = isInAnyTimeFrame(localTime, schedule))
-//            {
-//                TemperatureTimeFrame timeFrame = frame.value();
-//
-//                auto startTime = currentTime + std::chrono::hours(timeFrame.startTime.tm_hour) + std::chrono::minutes(timeFrame.startTime.tm_min);
-//                auto endTime = currentTime + std::chrono::hours(timeFrame.endTime.tm_hour) + std::chrono::minutes(timeFrame.endTime.tm_min);
-//
-//                std::cout << "current IP: "<< schedule.m_devIP << std::endl;
-//                wiz.setActiveBulb(schedule.m_devIP);
-//                wiz.changeTempInTime(timeFrame.startTemperature, timeFrame.endTemperature, startTime, endTime);
-//            }
-//
-//            else{
-//                std::cout << "Bad time, no action" << endl;
-//            }
-//        }
-//        sleep(10);
-//    }
+    auto temperatureTimeSchedules = loadTemperatureSchedule();
+
+    while (true)
+    {
+        auto currentTime = std::chrono::system_clock::now();
+        std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
+        std::tm* localTime = std::localtime(&currentTime_t);
+
+        for(const auto& schedule : temperatureTimeSchedules)
+        {
+            if( auto frame = isInAnyTimeFrame(localTime, schedule))
+            {
+                TemperatureTimeFrame timeFrame = frame.value();
+
+                std::cout << "current IP: "<< schedule.m_devIP << std::endl;
+                wiz.setActiveBulb(schedule.m_devIP);
+                wiz.changeTempInTime(timeFrame.startTemperature, timeFrame.endTemperature, timeFrame, localTime);
+            }
+
+            else{
+                std::cout << "Bad time, no action" << endl;
+            }
+        }
+        sleep(1);
+    }
 
 
     if (argc == 1) {

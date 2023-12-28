@@ -5,6 +5,7 @@
 #include "bulb.h"
 
 #include <chrono>
+#include "TemperateTimeSchedule.h"
 
 class WizControl
 {
@@ -14,7 +15,7 @@ public:
     bool validateArgsUsage(const std::vector<std::string>& args);
     std::string performWizRequest(const std::string& cmd);
 
-    void changeTempInTime(int startTemp, int endTemp, std::chrono::system_clock::time_point startTime, std::chrono::system_clock::time_point endTime);
+    void changeTempInTime(int startTemp, int endTemp, TemperatureTimeFrame timeFrame, std::tm* localTime);
     bool findBulb(const std::string ipAdress);
     void findAllBulbs();
     void setActiveBulb(std::string ip);
