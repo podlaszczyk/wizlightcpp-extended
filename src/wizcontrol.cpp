@@ -41,6 +41,8 @@
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <queue>
+
 
 bool isInTimeFrame(int currentHour, int currentMinute, int startHour, int startMinute, int endHour, int endMinute);
 
@@ -271,10 +273,10 @@ bool WizControl::validateArgsUsage(const std::vector<std::string>& args)
     return true;
 }
 
-WizControl& WizControl::getInstance() {
-    static WizControl instance;
-    return instance;
-}
+//WizControl& WizControl::getInstance() {
+//    static WizControl instance;
+//    return instance;
+//}
 
 WizControl::WizControl()
 {
@@ -489,7 +491,6 @@ void WizControl::findAllBulbs()
 {
     const char* command = "arp -a > devicesInNetwork.txt";
 
-    // Execute the command
     int result = system(command);
     if (result == 0) {
         std::stringstream buffer;
@@ -592,58 +593,73 @@ std::optional<TemperatureTimeFrame> isInAnyTimeFrame(const std::tm* localTime, c
     return {};
 }
 
+
 std::mutex mtx;
 std::condition_variable cv;
-bool keyPressed = false;
-
+std::queue<char> keyQueue;
 std::atomic<bool> keepRunning(true);
 
 void keyboardInputThread() {
     while (keepRunning) {
-        if (std::cin.peek() != EOF) {
-            char pressedKey = std::cin.get();
-            std::cout << "Key pressed: " << pressedKey << std::endl;
+        char pressedKey = std::cin.get();
 
+        {
             std::unique_lock<std::mutex> lock(mtx);
-            keyPressed = true;
-            lock.unlock();
-            cv.notify_one();
-
-
-            // Exit on 'q' key press
-            if (pressedKey == 'q') {
-                keepRunning = false;
-            }
-//            if (pressedKey == 'a')
-//            {
-//                wiz.performWizRequest("allbulbs");
-//            }
-//            if (pressedKey == 'o')
-//            {
-//                wiz.performWizRequest("on --ip 192.168.1.38");
-//            }
-//            if (pressedKey == 'f')
-//            {
-//                wiz.performWizRequest("off --ip 192.168.1.38");
-//            }
+            keyQueue.push(pressedKey);
         }
 
-        // Add a delay to avoid high CPU usage
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        cv.notify_one();
+
+        // Exit on 'q' key press
+        if (pressedKey == 'q') {
+            keepRunning = false;
+            break;
+        }
     }
 }
 
-int main(int argc, char *argv[])
-{
-    WizControl& wiz = WizControl::getInstance();
-//    std::thread inputThread(keyboardInputThread );
+void processingThread(WizControl& wiz) {
+    while (keepRunning) {
+        std::unique_lock<std::mutex> lock(mtx);
+        cv.wait(lock, [] { return !keyQueue.empty(); });
 
+        char key = keyQueue.front();
+        keyQueue.pop();
+        lock.unlock();
 
+        // Process the key
+        if (key == 'o') {
+            std::cout << "Processing thread: 'o' key pressed." << std::endl;
+            wiz.turnOnAll();
+        }
+        if (key == 'f') {
+            std::cout << "Processing thread: 'f' key pressed." << std::endl;
+            wiz.turnOffAll();
+        }
+        if (key == 'q') {
+            keepRunning = false;
+            break;
+        }
+    }
+}
 
-    auto temperatureTimeSchedules = loadTemperatureSchedule();
+void schedulingThread(WizControl& wiz, const vector<TemperatureTimeSchedule> &temperatureTimeSchedules) {
 
-    while (true)
+    while (keepRunning)
     {
+//        std::unique_lock<std::mutex> lock(mtx);
+//        cv.wait(lock, [] { return !keyQueue.empty(); });
+//
+//        char key = keyQueue.front();
+//        keyQueue.pop();
+//        lock.unlock();
+//
+//        // Exit on 'q' key press
+//        if (key == 'q') {
+//            keepRunning = false;
+//            break;
+//        }
+
         auto currentTime = std::chrono::system_clock::now();
         std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
         std::tm* localTime = std::localtime(&currentTime_t);
@@ -665,40 +681,78 @@ int main(int argc, char *argv[])
         }
         sleep(1);
     }
+}
 
 
-    if (argc == 1) {
-        printUsage();
-        return 0;
-    }
+int main(int argc, char *argv[])
+{
+//    WizControl& wiz = WizControl::getInstance();
 
-    std::vector<std::string> args;
-    for (int i = 1; i < argc; i++) {
-        args.emplace_back(argv[i]);
-    }
+    WizControl wiz;
+    auto temperatureTimeSchedules = loadTemperatureSchedule();
 
-    auto hIt = std::find(args.begin(), args.end(), "--help");
-    if ((hIt != args.end()) && (hIt == args.begin())) {
-        printUsage();
-        return 0;
-    }
+    std::jthread inputThread(keyboardInputThread);
+    std::jthread processThread(processingThread, std::ref(wiz));
+    std::jthread scheduleThread(schedulingThread, std::ref(wiz), std::ref(temperatureTimeSchedules));
 
-    auto vIt = std::find(args.begin(), args.end(), "--verbose");
-    if (vIt != args.end()) {
-        L::setLogLevel(L::d);
-        LOG_D("Verbose log enabled");
-        args.erase(vIt);
-    }
 
-    if (!wiz.isCmdSupported(args.at(0))) {
-        printUsage();
-        return 0;
-    }
+//    while (true)
+//    {
+//        auto currentTime = std::chrono::system_clock::now();
+//        std::time_t currentTime_t = std::chrono::system_clock::to_time_t(currentTime);
+//        std::tm* localTime = std::localtime(&currentTime_t);
+//
+//        for(const auto& schedule : temperatureTimeSchedules)
+//        {
+//            if( auto frame = isInAnyTimeFrame(localTime, schedule))
+//            {
+//                TemperatureTimeFrame timeFrame = frame.value();
+//
+//                std::cout << "current IP: "<< schedule.m_devIP << std::endl;
+//                wiz.setActiveBulb(schedule.m_devIP);
+//                wiz.changeTempInTime(timeFrame.startTemperature, timeFrame.endTemperature, timeFrame, localTime);
+//            }
+//
+//            else{
+//                std::cout << "Bad time, no action" << endl;
+//            }
+//        }
+//        sleep(1);
+//    }
 
-    if (args.size() == 1)
-        wiz.performWizRequest(args.at(0));
-    else
-        wiz.validateArgsUsage(args);
+
+//    if (argc == 1) {
+//        printUsage();
+//        return 0;
+//    }
+//
+//    std::vector<std::string> args;
+//    for (int i = 1; i < argc; i++) {
+//        args.emplace_back(argv[i]);
+//    }
+//
+//    auto hIt = std::find(args.begin(), args.end(), "--help");
+//    if ((hIt != args.end()) && (hIt == args.begin())) {
+//        printUsage();
+//        return 0;
+//    }
+//
+//    auto vIt = std::find(args.begin(), args.end(), "--verbose");
+//    if (vIt != args.end()) {
+//        L::setLogLevel(L::d);
+//        LOG_D("Verbose log enabled");
+//        args.erase(vIt);
+//    }
+//
+//    if (!wiz.isCmdSupported(args.at(0))) {
+//        printUsage();
+//        return 0;
+//    }
+//
+//    if (args.size() == 1)
+//        wiz.performWizRequest(args.at(0));
+//    else
+//        wiz.validateArgsUsage(args);
 
 
 }

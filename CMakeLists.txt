@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15.0)
 project(wizlightcpp VERSION 1.0.0)
 
-SET(GCC_COVERAGE_COMPILE_FLAGS "-Werror -Wall -std=c++17")
+SET(GCC_COVERAGE_COMPILE_FLAGS "-Werror -Wall -std=c++20")
 SET(CMAKE_CXX_FLAGS  "${GCC_COVERAGE_COMPILE_FLAGS}")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/thirdparty)

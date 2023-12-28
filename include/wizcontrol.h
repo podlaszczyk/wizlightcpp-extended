@@ -10,7 +10,9 @@
 class WizControl
 {
 public:
-    static WizControl& getInstance();
+    WizControl();
+    ~WizControl();
+//    static WizControl& getInstance();
     bool isCmdSupported(const std::string& cmd);
     bool validateArgsUsage(const std::vector<std::string>& args);
     std::string performWizRequest(const std::string& cmd);
@@ -31,8 +33,7 @@ private:
 
     std::vector<std::string> extractIPAddresses(const std::string& input);
 
-        WizControl();
-    ~WizControl();
+
 
     enum WIZCMD {
         discover, on, off, status, reboot,
