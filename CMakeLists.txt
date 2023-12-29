@@ -9,6 +9,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake/thirdparty)
 
 set(HEADERS
         include/mainwindow.h
+        include/LightIntensityWidget.h
+        include/LightIntesityWidgetWithSlider.h
 )
 
 add_executable(${PROJECT_NAME} 
@@ -18,6 +20,8 @@ add_executable(${PROJECT_NAME}
     ${CMAKE_SOURCE_DIR}/src/bulb.cpp
     ${CMAKE_SOURCE_DIR}/src/main.cpp
     ${CMAKE_SOURCE_DIR}/src/mainwindow.cpp
+    ${CMAKE_SOURCE_DIR}/src/LightIntensityWidget.cpp
+    ${CMAKE_SOURCE_DIR}/src/LightIntesityWidgetWithSlider.cpp
         ${HEADERS}
 )
 

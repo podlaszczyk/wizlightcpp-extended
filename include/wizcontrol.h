@@ -19,7 +19,7 @@ public:
 
     void changeTempInTime(int startTemp, int endTemp, TemperatureTimeFrame timeFrame, std::tm* localTime);
     bool findBulb(const std::string ipAdress);
-    void findAllBulbs();
+    std::vector<std::string> findAllBulbs();
     void setActiveBulb(std::string ip);
     void turnOffAll();
     void turnOnAll();

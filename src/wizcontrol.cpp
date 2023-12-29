@@ -487,8 +487,9 @@ std::vector<std::string> WizControl::extractIPAddresses(const std::string& input
     return addresses;
 }
 
-void WizControl::findAllBulbs()
+std::vector<std::string> WizControl::findAllBulbs()
 {
+    allIPs.clear();
     const char* command = "arp -a > devicesInNetwork.txt";
 
     int result = system(command);
@@ -507,6 +508,7 @@ void WizControl::findAllBulbs()
             }
         }
     }
+    return allIPs;
 }
 
 void WizControl::setActiveBulb(std::string ip) {
