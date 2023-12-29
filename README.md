@@ -15,6 +15,14 @@ Before building, you'll need to install following dependencies
 
     cmake
     libjansson-dev
+    nlohmann
+    qt5
+    arp
+
+## Install nlohman
+    sudo apt-get install nlohmann-json3-dev
+    sudo apt-get install qtbase5-dev
+    sudo apt-get install net-tools
 
 ## Building
 wizlightcpp should work with any Linux distribution and added cross compilation support.

@@ -490,7 +490,7 @@ std::vector<std::string> WizControl::extractIPAddresses(const std::string& input
 std::vector<std::string> WizControl::findAllBulbs()
 {
     allIPs.clear();
-    const char* command = "arp -a > devicesInNetwork.txt";
+    const char* command = "arp -a -n > devicesInNetwork.txt";
 
     int result = system(command);
     if (result == 0) {
